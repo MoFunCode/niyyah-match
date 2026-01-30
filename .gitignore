@@ -34,3 +34,6 @@ build/
 
 ### .md Files
 *.md
+
+### Configuration Files
+src/main/resources/application.yml
