@@ -10,10 +10,9 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RegisterUserRequest {
-    // Account credentials
+public class UpdateUserRequest {
+    // Account information
     private String email;
-    private String password;
 
     // Personal information
     private String firstName;
@@ -21,7 +20,7 @@ public class RegisterUserRequest {
     private LocalDate dateOfBirth;
     private Gender gender;
 
-    // Profile details (optional at registration)
+    // Profile details
     private String location;
     private String bio;
     private String profilePhotoUrl;
