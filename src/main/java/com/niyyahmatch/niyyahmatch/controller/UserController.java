@@ -5,6 +5,7 @@ import com.niyyahmatch.niyyahmatch.dto.UpdateUserRequest;
 import com.niyyahmatch.niyyahmatch.dto.UserResponse;
 import com.niyyahmatch.niyyahmatch.entity.User;
 import com.niyyahmatch.niyyahmatch.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +23,7 @@ public class UserController {
     }
 
     @PostMapping("/register")
-        public UserResponse registerNewUser(@RequestBody CreateUserRequest request){
+        public UserResponse registerNewUser(@Valid @RequestBody CreateUserRequest request){
         // Step 1: Convert DTO → Entity
         User user = User.builder()
                 .email(request.getEmail())
@@ -52,7 +53,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public UserResponse updateUser(@PathVariable Long id, @RequestBody UpdateUserRequest request){
+    public UserResponse updateUser(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request){
         // Convert DTO → Entity
         User updatedUser = User.builder()
                 .email(request.getEmail())
