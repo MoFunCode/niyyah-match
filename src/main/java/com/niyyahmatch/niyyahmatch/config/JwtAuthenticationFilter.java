@@ -41,7 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     // Create authentication object - tells Spring Security this user is authenticated
                     UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(email, null, new ArrayList<>());
+                            new UsernamePasswordAuthenticationToken(userId, null, new ArrayList<>());
 
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
