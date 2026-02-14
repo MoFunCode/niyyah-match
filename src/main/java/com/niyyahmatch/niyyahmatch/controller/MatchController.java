@@ -6,9 +6,9 @@ import com.niyyahmatch.niyyahmatch.dto.SwipeResponse;
 import com.niyyahmatch.niyyahmatch.entity.Match;
 import com.niyyahmatch.niyyahmatch.exception.ResourceNotFoundException;
 import com.niyyahmatch.niyyahmatch.service.MatchService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
 
 import java.util.Optional;
 
@@ -61,6 +61,18 @@ public class MatchController {
             // No match - just recorded the swipe
             return new SwipeResponse(false);
         }
+    }
+
+    @PostMapping("/{matchId}/unmatch")
+    public ResponseEntity<Void> unmatch(@PathVariable Long matchId) {
+        // 1. Get userId from JWT
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // 2. Call service to unmatch - handles all validations
+        matchService.unmatch(matchId, userId);
+
+        // 3. Return 204 No Content (success with no response body)
+        return ResponseEntity.noContent().build();
     }
 
 }
