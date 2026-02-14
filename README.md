@@ -50,9 +50,10 @@ NiyyahMatch encourages meaningful connections by requiring users to make intenti
 - ✅ Match lock enforcement (users blocked from swiping with active match)
 - ✅ GET /api/matches/active endpoint
 - ✅ POST /api/swipes endpoint with full validation
+- ✅ POST /api/matches/{matchId}/unmatch endpoint (match lock release)
+- ✅ **Complete match lifecycle working end-to-end!** (swipe → match → unmatch → swipe again)
 
 **Next Up:**
-- 🔄 POST /api/matches/{matchId}/unmatch endpoint
 - 🔄 GET /api/swipes/candidates endpoint (who to show users)
 
 **Planned:**
@@ -451,9 +452,9 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 ### Match & Swipe System 🔒
 - `GET /api/matches/active` - Get current active match (requires JWT)
 - `POST /api/matches/swipes` - Record a swipe (LIKE/PASS) with match lock enforcement (requires JWT)
+- `POST /api/matches/{matchId}/unmatch` - End current match and release match lock (requires JWT)
 
 ### Coming Soon
-- `POST /api/matches/{matchId}/unmatch` - End current match
 - `GET /api/swipes/candidates` - Get profiles to swipe on (filtered, excluding already swiped)
 
 ## Local Setup
@@ -508,14 +509,15 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 - [x] Input validation system
 - [x] Global exception handling
 
-### Phase 2: Core Matching 🔒 (95% COMPLETE!)
+### Phase 2: Core Matching 🔒 (97% COMPLETE!)
 - [x] Match entity with relationships
 - [x] Swipe entity with swipe history
 - [x] Swipe functionality (POST /api/matches/swipes)
 - [x] Match creation logic with mutual detection
 - [x] **Match lock enforcement - THE CORE DIFFERENTIATOR!**
 - [x] GET /api/matches/active endpoint
-- [ ] POST /api/matches/{matchId}/unmatch endpoint (final piece)
+- [x] POST /api/matches/{matchId}/unmatch endpoint
+- [x] **Complete match lifecycle (swipe → match → unmatch → swipe again)**
 - [ ] GET /api/swipes/candidates endpoint (who to show users)
 
 ### Phase 3: User Experience
