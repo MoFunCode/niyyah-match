@@ -44,11 +44,16 @@ NiyyahMatch encourages meaningful connections by requiring users to make intenti
 - ✅ Global exception handling with field-level errors
 - ✅ Layered architecture (Controller → Service → Repository → Entity)
 - ✅ DTO pattern for API security (passwords never exposed)
+- ✅ **Match lock system - THE CORE DIFFERENTIATOR!** 🔒
+- ✅ Match and Swipe entities with JPA relationships
+- ✅ Swipe functionality with mutual match detection
+- ✅ Match lock enforcement (users blocked from swiping with active match)
+- ✅ GET /api/matches/active endpoint
+- ✅ POST /api/swipes endpoint with full validation
 
 **Next Up:**
-- 🔄 Match entity and relationships
-- 🔄 Match lock enforcement logic
-- 🔄 Swipe system with mutual match detection
+- 🔄 POST /api/matches/{matchId}/unmatch endpoint
+- 🔄 GET /api/swipes/candidates endpoint (who to show users)
 
 **Planned:**
 - ⏳ Daily swipe tracking and limits
@@ -248,8 +253,144 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = new ErrorResponse(ex.getMessage(), null);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(ex.getMessage(), null);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
 }
 ```
+
+### 5. Match Lock System 🔒 (THE CORE DIFFERENTIATOR!)
+
+The match lock enforces NiyyahMatch's unique approach - users can only have ONE active match at a time:
+
+```java
+@Service
+public class MatchService {
+
+    public boolean hasActiveMatch(Long userId) {
+        // Check both user1 and user2 positions (bidirectional)
+        return matchRepository.existsByUser1IdAndStatusOrUser2IdAndStatus(
+            userId, MatchStatus.ACTIVE,
+            userId, MatchStatus.ACTIVE
+        );
+    }
+
+    @Transactional
+    public Optional<Match> recordSwipe(Long userId, Long targetUserId, SwipeDirection direction) {
+        // Validation 1: Can't swipe on yourself
+        if (userId.equals(targetUserId)) {
+            throw new IllegalArgumentException("Cannot swipe on yourself");
+        }
+
+        // Validation 2: THE MATCH LOCK - enforces one match at a time
+        if (hasActiveMatch(userId)) {
+            throw new IllegalStateException("Cannot swipe while you have an active match");
+        }
+
+        // Validation 3: Can't swipe twice on same person
+        if (swipeRepository.existsByUserIdAndTargetUserId(userId, targetUserId)) {
+            throw new IllegalStateException("You already swiped on this user");
+        }
+
+        // Record the swipe
+        Swipe swipe = Swipe.builder()
+            .userId(userId)
+            .targetUserId(targetUserId)
+            .direction(direction)
+            .swipedAt(LocalDateTime.now())
+            .build();
+        swipeRepository.save(swipe);
+
+        // Check for mutual match (both swiped RIGHT)
+        if (direction == SwipeDirection.RIGHT) {
+            return checkAndCreateMatch(userId, targetUserId);
+        }
+
+        return Optional.empty();
+    }
+}
+```
+
+**API Examples:**
+
+```bash
+# Get current active match
+curl -X GET http://localhost:8080/api/matches/active \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+
+# Response if match exists:
+{
+  "matchId": 2,
+  "status": "ACTIVE",
+  "matchedAt": "2026-02-14T16:34:46.722514",
+  "matchedUser": {
+    "id": 10,
+    "firstName": "Fatima",
+    "lastName": "Ahmed",
+    "email": "fatima@test.com",
+    ...
+  }
+}
+
+# Response if no active match (404):
+{
+  "status": 404,
+  "error": "Resource Not Found",
+  "message": "No active match found"
+}
+
+# Swipe RIGHT on a user
+curl -X POST http://localhost:8080/api/matches/swipes \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
+  -d '{
+    "targetUserId": 11,
+    "direction": "RIGHT"
+  }'
+
+# Response if mutual match created:
+{
+  "matched": true,
+  "matchDetails": {
+    "matchId": 2,
+    "status": "ACTIVE",
+    "matchedAt": "2026-02-14T16:34:46.722514",
+    "matchedUser": { ... }
+  }
+}
+
+# Response if no mutual match yet:
+{
+  "matched": false,
+  "matchDetails": null
+}
+
+# Try to swipe while having active match (BLOCKED!):
+curl -X POST http://localhost:8080/api/matches/swipes \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
+  -d '{
+    "targetUserId": 12,
+    "direction": "RIGHT"
+  }'
+
+# Response (400 Bad Request):
+{
+  "timestamp": "2026-02-14T16:42:06.897026",
+  "status": 400,
+  "error": "Invalid Request",
+  "message": "Cannot swipe while you have an active match"
+}
+```
+
+**Validations Enforced:**
+- ✅ Match lock enforcement (cannot swipe with active match)
+- ✅ Self-swipe prevention (cannot swipe on yourself)
+- ✅ Duplicate swipe prevention (cannot swipe twice on same user)
+- ✅ Mutual match detection (both users swipe RIGHT → match created)
 
 ## Project Structure
 
@@ -261,24 +402,35 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 │   └── SecurityConfig.java
 ├── controller/                # REST API endpoints
 │   ├── AuthController.java   # Login endpoint
-│   └── UserController.java   # User CRUD operations
+│   ├── UserController.java   # User CRUD operations
+│   └── MatchController.java  # Match and swipe endpoints
 ├── dto/                       # Data Transfer Objects
 │   ├── CreateUserRequest.java
 │   ├── UpdateUserRequest.java
 │   ├── UserResponse.java
 │   ├── LoginRequest.java
-│   └── LoginResponse.java
+│   ├── LoginResponse.java
+│   ├── SwipeRequest.java     # Swipe action request
+│   ├── SwipeResponse.java    # Swipe result response
+│   └── MatchResponse.java    # Active match details
 ├── entity/                    # JPA entities
 │   ├── User.java
-│   └── Gender.java
+│   ├── Gender.java
+│   ├── Match.java            # Match relationships
+│   ├── MatchStatus.java      # ACTIVE, UNMATCHED, EXPIRED
+│   ├── Swipe.java            # Swipe history
+│   └── SwipeDirection.java   # LEFT, RIGHT
 ├── exception/                 # Custom exceptions & global handler
 │   ├── GlobalExceptionHandler.java
 │   ├── ResourceNotFoundException.java
 │   └── DuplicateResourceException.java
 ├── repository/                # Data access layer
-│   └── UserRepository.java
+│   ├── UserRepository.java
+│   ├── MatchRepository.java
+│   └── SwipeRepository.java
 ├── service/                   # Business logic
-│   └── UserService.java
+│   ├── UserService.java
+│   └── MatchService.java     # Match lock enforcement & swipe logic
 ├── validation/                # Custom validators
 │   ├── MinAge.java
 │   └── MinAgeValidator.java
@@ -296,11 +448,13 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 - `PUT /api/users/{id}` - Update user profile (requires JWT)
 - `DELETE /api/users/{id}` - Delete user account (requires JWT)
 
+### Match & Swipe System 🔒
+- `GET /api/matches/active` - Get current active match (requires JWT)
+- `POST /api/matches/swipes` - Record a swipe (LIKE/PASS) with match lock enforcement (requires JWT)
+
 ### Coming Soon
-- `GET /api/swipes/candidates` - Get profiles to swipe on
-- `POST /api/swipes` - Record a swipe (LIKE/PASS)
-- `GET /api/matches/active` - Get current active match
 - `POST /api/matches/{matchId}/unmatch` - End current match
+- `GET /api/swipes/candidates` - Get profiles to swipe on (filtered, excluding already swiped)
 
 ## Local Setup
 
@@ -354,12 +508,15 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 - [x] Input validation system
 - [x] Global exception handling
 
-### Phase 2: Core Matching (IN PROGRESS)
-- [ ] Match entity with relationships
-- [ ] Swipe functionality
-- [ ] Match creation logic
-- [ ] Match lock enforcement
-- [ ] Mutual match detection
+### Phase 2: Core Matching 🔒 (95% COMPLETE!)
+- [x] Match entity with relationships
+- [x] Swipe entity with swipe history
+- [x] Swipe functionality (POST /api/matches/swipes)
+- [x] Match creation logic with mutual detection
+- [x] **Match lock enforcement - THE CORE DIFFERENTIATOR!**
+- [x] GET /api/matches/active endpoint
+- [ ] POST /api/matches/{matchId}/unmatch endpoint (final piece)
+- [ ] GET /api/swipes/candidates endpoint (who to show users)
 
 ### Phase 3: User Experience
 - [ ] Filter preferences system
