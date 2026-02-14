@@ -1,13 +1,14 @@
 package com.niyyahmatch.niyyahmatch.controller;
 
 import com.niyyahmatch.niyyahmatch.dto.MatchResponse;
+import com.niyyahmatch.niyyahmatch.dto.SwipeRequest;
+import com.niyyahmatch.niyyahmatch.dto.SwipeResponse;
 import com.niyyahmatch.niyyahmatch.entity.Match;
 import com.niyyahmatch.niyyahmatch.exception.ResourceNotFoundException;
 import com.niyyahmatch.niyyahmatch.service.MatchService;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
 
 import java.util.Optional;
 
@@ -37,6 +38,28 @@ public class MatchController {
         } else {
             // No active match - user is free to swipe
             throw new ResourceNotFoundException("No active match found");
+        }
+    }
+    @PostMapping("/swipes")
+    public SwipeResponse recordSwipe(@RequestBody SwipeRequest request) {
+        // 1. Get userId from JWT (same as getActiveMatch)
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // 2. Call service to record the swipe - returns Optional<Match>
+        Optional<Match> matchOptional = matchService.recordSwipe(
+                userId,
+                request.getTargetUserId(),
+                request.getDirection()
+        );
+
+        // 3. Check if mutual match was created
+        if (matchOptional.isPresent()) {
+            // Match created! Return SwipeResponse with match details
+            Match match = matchOptional.get();
+            return new SwipeResponse(match, userId);
+        } else {
+            // No match - just recorded the swipe
+            return new SwipeResponse(false);
         }
     }
 
