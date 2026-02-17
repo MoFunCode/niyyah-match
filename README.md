@@ -49,17 +49,18 @@ NiyyahMatch encourages meaningful connections by requiring users to make intenti
 - ✅ Swipe functionality with mutual match detection
 - ✅ Match lock enforcement (users blocked from swiping with active match)
 - ✅ GET /api/matches/active endpoint
-- ✅ POST /api/swipes endpoint with full validation
+- ✅ POST /api/matches/swipes endpoint with full validation
 - ✅ POST /api/matches/{matchId}/unmatch endpoint (match lock release)
 - ✅ **Complete match lifecycle working end-to-end!** (swipe → match → unmatch → swipe again)
+- ✅ Filter preferences system (age range, location)
+- ✅ GET /api/swipes/candidates endpoint with smart filtering
+- ✅ **Phase 2 complete!**
 
 **Next Up:**
-- 🔄 GET /api/swipes/candidates endpoint (who to show users)
+- 🔄 Daily swipe quota system (12 swipes/day limit)
 
 **Planned:**
-- ⏳ Daily swipe tracking and limits
 - ⏳ Messaging system
-- ⏳ Filter preferences
 - ⏳ 14-day prompt system
 
 ## Features Showcase
@@ -393,46 +394,103 @@ curl -X POST http://localhost:8080/api/matches/swipes \
 - ✅ Duplicate swipe prevention (cannot swipe twice on same user)
 - ✅ Mutual match detection (both users swipe RIGHT → match created)
 
+### 6. Filter Preferences & Candidate Discovery
+
+Users set their preferences once - the system applies them automatically on every candidates request:
+
+```bash
+# Set filter preferences
+curl -X PUT http://localhost:8080/api/users/preferences \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"minAge": 24, "maxAge": 32, "location": "New York"}'
+
+# Response:
+{
+  "minAge": 24,
+  "maxAge": 32,
+  "location": "New York",
+  "updatedAt": "2026-02-17T12:27:22.129068"
+}
+
+# Get candidates - preferences applied automatically
+curl -X GET "http://localhost:8080/api/swipes/candidates?page=0" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+
+# Response:
+{
+  "content": [
+    {
+      "id": 8,
+      "firstName": "Zahra",
+      "age": 28,
+      "location": "New York",
+      "bio": "Medical student seeking sincere partnership",
+      "profilePhotoUrl": null
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1,
+  "size": 10
+}
+```
+
+**Filtering logic applied automatically:**
+- Opposite gender only
+- Excludes users already swiped on (never see the same profile twice)
+- Excludes active match partner
+- Age range filter (18+ hard floor always enforced)
+- Location filter (skipped if no preference set)
+- Paginated - 10 candidates per page
+
 ## Project Structure
 
 ```
 src/main/java/com/niyyahmatch/niyyahmatch/
-├── config/                    # Security & JWT configuration
-│   ├── JwtUtil.java          # JWT token generation and validation
+├── config/                          # Security & JWT configuration
+│   ├── JwtUtil.java
 │   ├── JwtAuthenticationFilter.java
 │   └── SecurityConfig.java
-├── controller/                # REST API endpoints
-│   ├── AuthController.java   # Login endpoint
-│   ├── UserController.java   # User CRUD operations
-│   └── MatchController.java  # Match and swipe endpoints
-├── dto/                       # Data Transfer Objects
+├── controller/                      # REST API endpoints
+│   ├── AuthController.java          # Login endpoint
+│   ├── MatchController.java         # Match and swipe endpoints
+│   ├── SwipeController.java         # Candidates endpoint
+│   └── UserController.java          # User CRUD + preferences
+├── dto/                             # Data Transfer Objects
+│   ├── CandidateResponse.java       # Candidate profile (no sensitive data)
 │   ├── CreateUserRequest.java
-│   ├── UpdateUserRequest.java
-│   ├── UserResponse.java
+│   ├── ErrorResponse.java
+│   ├── FilterPreferencesRequest.java
+│   ├── FilterPreferencesResponse.java
 │   ├── LoginRequest.java
 │   ├── LoginResponse.java
-│   ├── SwipeRequest.java     # Swipe action request
-│   ├── SwipeResponse.java    # Swipe result response
-│   └── MatchResponse.java    # Active match details
-├── entity/                    # JPA entities
-│   ├── User.java
+│   ├── MatchResponse.java
+│   ├── SwipeRequest.java
+│   ├── SwipeResponse.java
+│   ├── UpdateUserRequest.java
+│   └── UserResponse.java
+├── entity/                          # JPA entities
+│   ├── FilterPreferences.java       # User filter preferences
 │   ├── Gender.java
-│   ├── Match.java            # Match relationships
-│   ├── MatchStatus.java      # ACTIVE, UNMATCHED, EXPIRED
-│   ├── Swipe.java            # Swipe history
-│   └── SwipeDirection.java   # LEFT, RIGHT
-├── exception/                 # Custom exceptions & global handler
+│   ├── Match.java
+│   ├── MatchStatus.java             # ACTIVE, UNMATCHED, EXPIRED
+│   ├── Swipe.java
+│   ├── SwipeDirection.java          # LEFT, RIGHT
+│   └── User.java
+├── exception/                       # Custom exceptions & global handler
+│   ├── DuplicateResourceException.java
 │   ├── GlobalExceptionHandler.java
-│   ├── ResourceNotFoundException.java
-│   └── DuplicateResourceException.java
-├── repository/                # Data access layer
-│   ├── UserRepository.java
+│   └── ResourceNotFoundException.java
+├── repository/                      # Data access layer
+│   ├── FilterPreferencesRepository.java
 │   ├── MatchRepository.java
-│   └── SwipeRepository.java
-├── service/                   # Business logic
-│   ├── UserService.java
-│   └── MatchService.java     # Match lock enforcement & swipe logic
-├── validation/                # Custom validators
+│   ├── SwipeRepository.java
+│   └── UserRepository.java          # Includes findCandidates JPQL query
+├── service/                         # Business logic
+│   ├── CandidateService.java        # Candidate filtering & pagination
+│   ├── MatchService.java            # Match lock enforcement & swipe logic
+│   └── UserService.java             # User management & preferences
+├── validation/                      # Custom validators
 │   ├── MinAge.java
 │   └── MinAgeValidator.java
 └── NiyyahmatchApplication.java
@@ -454,8 +512,12 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 - `POST /api/matches/swipes` - Record a swipe (LIKE/PASS) with match lock enforcement (requires JWT)
 - `POST /api/matches/{matchId}/unmatch` - End current match and release match lock (requires JWT)
 
-### Coming Soon
-- `GET /api/swipes/candidates` - Get profiles to swipe on (filtered, excluding already swiped)
+### Candidate Discovery
+- `GET /api/swipes/candidates?page=0` - Get paginated candidates with filters applied (requires JWT)
+
+### Filter Preferences
+- `GET /api/users/preferences` - Get current filter preferences (requires JWT)
+- `PUT /api/users/preferences` - Set or update filter preferences (requires JWT)
 
 ## Local Setup
 
@@ -509,7 +571,7 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 - [x] Input validation system
 - [x] Global exception handling
 
-### Phase 2: Core Matching 🔒 (97% COMPLETE!)
+### Phase 2: Core Matching ✅ COMPLETE
 - [x] Match entity with relationships
 - [x] Swipe entity with swipe history
 - [x] Swipe functionality (POST /api/matches/swipes)
@@ -518,16 +580,18 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 - [x] GET /api/matches/active endpoint
 - [x] POST /api/matches/{matchId}/unmatch endpoint
 - [x] **Complete match lifecycle (swipe → match → unmatch → swipe again)**
-- [ ] GET /api/swipes/candidates endpoint (who to show users)
+- [x] Filter preferences system (age range, location)
+- [x] GET /api/swipes/candidates endpoint with smart filtering
+- [x] GET/PUT /api/users/preferences endpoints
 
-### Phase 3: User Experience
-- [ ] Filter preferences system
+### Phase 3: Engagement Features 🔄 IN PROGRESS
+- [ ] Daily swipe quota (12 swipes/day limit)
+- [ ] Daily quota reset scheduler
+- [ ] Messaging system (send & receive within active match)
 - [ ] Profile management enhancements
-- [ ] Messaging system
-- [ ] Daily swipe limit tracking
 
 ### Phase 4: Polish & Launch
-- [ ] 14-day prompt system
+- [ ] 14-day soft prompt system
 - [ ] Comprehensive testing
 - [ ] Performance optimization
 - [ ] Private beta (50-100 users)
