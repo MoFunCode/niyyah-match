@@ -1,13 +1,18 @@
 package com.niyyahmatch.niyyahmatch.controller;
 
 import com.niyyahmatch.niyyahmatch.dto.CreateUserRequest;
+import com.niyyahmatch.niyyahmatch.dto.FilterPreferencesRequest;
+import com.niyyahmatch.niyyahmatch.dto.FilterPreferencesResponse;
 import com.niyyahmatch.niyyahmatch.dto.UpdateUserRequest;
 import com.niyyahmatch.niyyahmatch.dto.UserResponse;
+import com.niyyahmatch.niyyahmatch.entity.FilterPreferences;
 import com.niyyahmatch.niyyahmatch.entity.User;
+import com.niyyahmatch.niyyahmatch.exception.ResourceNotFoundException;
 import com.niyyahmatch.niyyahmatch.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -75,10 +80,22 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id){
-        // Call service to delete user
         userService.deleteUser(id);
-
-        // Return 204 No Content (RESTful way to indicate successful deletion)
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/preferences")
+    public FilterPreferencesResponse getPreferences() {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        FilterPreferences preferences = userService.getPreferences(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("No preferences found. Use PUT /api/users/preferences to set them."));
+        return new FilterPreferencesResponse(preferences);
+    }
+
+    @PutMapping("/preferences")
+    public FilterPreferencesResponse savePreferences(@Valid @RequestBody FilterPreferencesRequest request) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        FilterPreferences saved = userService.savePreferences(userId, request.getMinAge(), request.getMaxAge(), request.getLocation());
+        return new FilterPreferencesResponse(saved);
     }
 }
