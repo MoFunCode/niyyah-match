@@ -12,11 +12,15 @@ import com.niyyahmatch.niyyahmatch.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 @Service
 public class MatchService {
+
+    private static final int DAILY_SWIPE_LIMIT = 12;
 
     private final MatchRepository matchRepository;
     private final SwipeRepository swipeRepository;
@@ -43,6 +47,12 @@ public class MatchService {
 
         if (hasActiveMatch(userId)) {
             throw new IllegalStateException("Cannot swipe while you have an active match");
+        }
+
+        LocalDateTime todayMidnightUTC = LocalDate.now(ZoneOffset.UTC).atStartOfDay();
+        int swipesToday = swipeRepository.countByUserIdAndSwipedAtAfter(userId, todayMidnightUTC);
+        if (swipesToday >= DAILY_SWIPE_LIMIT) {
+            throw new IllegalStateException("Daily swipe limit reached. Try again tomorrow.");
         }
 
         if (swipeRepository.existsByUserIdAndTargetUserId(userId, targetUserId)) {
@@ -94,6 +104,12 @@ public class MatchService {
             .build();
 
         return matchRepository.save(match);
+    }
+
+    public int getRemainingSwipes(Long userId) {
+        LocalDateTime todayMidnightUTC = LocalDate.now(ZoneOffset.UTC).atStartOfDay();
+        int swipesToday = swipeRepository.countByUserIdAndSwipedAtAfter(userId, todayMidnightUTC);
+        return Math.max(0, DAILY_SWIPE_LIMIT - swipesToday);
     }
 
     public Optional<Match> getActiveMatch(Long userId) {
