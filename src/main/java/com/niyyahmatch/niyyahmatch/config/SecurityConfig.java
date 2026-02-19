@@ -35,6 +35,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()  // Login is public
                         .requestMatchers("/api/users/register").permitAll()  // Registration is public
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()  // Swagger UI
+                        .requestMatchers("/v3/api-docs/**").permitAll()  // OpenAPI spec
                         .anyRequest().authenticated()  // Everything else requires authentication
                 )
 
