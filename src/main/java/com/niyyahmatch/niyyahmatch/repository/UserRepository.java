@@ -1,7 +1,11 @@
 package com.niyyahmatch.niyyahmatch.repository;
 
+import com.niyyahmatch.niyyahmatch.entity.EducationLevel;
 import com.niyyahmatch.niyyahmatch.entity.Gender;
+import com.niyyahmatch.niyyahmatch.entity.HijabPreference;
 import com.niyyahmatch.niyyahmatch.entity.MatchStatus;
+import com.niyyahmatch.niyyahmatch.entity.PrayerFrequency;
+import com.niyyahmatch.niyyahmatch.entity.Sect;
 import com.niyyahmatch.niyyahmatch.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,7 +30,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // - Exclude users already swiped on
     // - Exclude current active match partner
     // - Optional: age range (converted to birth date range by the service layer)
-    // - Optional: location match
+    // - Optional: location, sect, prayer frequency, education level, hijab status
+    // All Islamic lifestyle filters are optional - null means no preference (skip that filter)
     @Query("""
             SELECT u FROM User u
             WHERE u.gender = :gender
@@ -45,6 +50,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
             AND (CAST(:location AS String) IS NULL OR u.location = :location)
             AND (CAST(:minBirthDate AS LocalDate) IS NULL OR u.dateOfBirth >= :minBirthDate)
             AND (CAST(:maxBirthDate AS LocalDate) IS NULL OR u.dateOfBirth <= :maxBirthDate)
+            AND (:sect IS NULL OR u.sect = :sect)
+            AND (:prayerFrequency IS NULL OR u.prayerFrequency = :prayerFrequency)
+            AND (:educationLevel IS NULL OR u.educationLevel = :educationLevel)
+            AND (:hijabPreference IS NULL OR u.hijabStatus = :hijabPreference)
             """)
     Page<User> findCandidates(
             @Param("userId") Long userId,
@@ -53,6 +62,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @Param("minBirthDate") LocalDate minBirthDate,
             @Param("maxBirthDate") LocalDate maxBirthDate,
             @Param("activeStatus") MatchStatus activeStatus,
+            @Param("sect") Sect sect,
+            @Param("prayerFrequency") PrayerFrequency prayerFrequency,
+            @Param("educationLevel") EducationLevel educationLevel,
+            @Param("hijabPreference") HijabPreference hijabPreference,
             Pageable pageable
     );
 }

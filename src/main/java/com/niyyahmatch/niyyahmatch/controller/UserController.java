@@ -40,6 +40,10 @@ public class UserController {
                 .location(request.getLocation())
                 .bio(request.getBio())
                 .profilePhotoUrl(request.getProfilePhotoUrl())
+                .sect(request.getSect())
+                .prayerFrequency(request.getPrayerFrequency())
+                .educationLevel(request.getEducationLevel())
+                .hijabStatus(request.getHijabStatus())
                 .build();
 
         User savedUser = userService.registerUser(user);
@@ -69,6 +73,10 @@ public class UserController {
                 .location(request.getLocation())
                 .bio(request.getBio())
                 .profilePhotoUrl(request.getProfilePhotoUrl())
+                .sect(request.getSect())
+                .prayerFrequency(request.getPrayerFrequency())
+                .educationLevel(request.getEducationLevel())
+                .hijabStatus(request.getHijabStatus())
                 .build();
 
         // Call service to update
@@ -95,7 +103,8 @@ public class UserController {
     @PutMapping("/preferences")
     public FilterPreferencesResponse savePreferences(@Valid @RequestBody FilterPreferencesRequest request) {
         Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        FilterPreferences saved = userService.savePreferences(userId, request.getMinAge(), request.getMaxAge(), request.getLocation());
+        FilterPreferences saved = userService.savePreferences(userId, request.getMinAge(), request.getMaxAge(), request.getLocation(),
+                request.getSect(), request.getMinPrayerFrequency(), request.getMinEducationLevel(), request.getHijabPreference());
         return new FilterPreferencesResponse(saved);
     }
 }

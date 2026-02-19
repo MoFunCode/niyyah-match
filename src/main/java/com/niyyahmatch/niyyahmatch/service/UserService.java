@@ -1,6 +1,10 @@
 package com.niyyahmatch.niyyahmatch.service;
 
+import com.niyyahmatch.niyyahmatch.entity.EducationLevel;
 import com.niyyahmatch.niyyahmatch.entity.FilterPreferences;
+import com.niyyahmatch.niyyahmatch.entity.HijabPreference;
+import com.niyyahmatch.niyyahmatch.entity.PrayerFrequency;
+import com.niyyahmatch.niyyahmatch.entity.Sect;
 import com.niyyahmatch.niyyahmatch.entity.User;
 import com.niyyahmatch.niyyahmatch.exception.DuplicateResourceException;
 import com.niyyahmatch.niyyahmatch.exception.ResourceNotFoundException;
@@ -54,6 +58,10 @@ public class UserService {
         existingUser.setLocation(updatedUser.getLocation());
         existingUser.setBio(updatedUser.getBio());
         existingUser.setProfilePhotoUrl(updatedUser.getProfilePhotoUrl());
+        existingUser.setSect(updatedUser.getSect());
+        existingUser.setPrayerFrequency(updatedUser.getPrayerFrequency());
+        existingUser.setEducationLevel(updatedUser.getEducationLevel());
+        existingUser.setHijabStatus(updatedUser.getHijabStatus());
 
         // Save and return updated user
         return userRepository.save(existingUser);
@@ -73,7 +81,9 @@ public class UserService {
         return filterPreferencesRepository.findByUserId(userId);
     }
 
-    public FilterPreferences savePreferences(Long userId, Integer minAge, Integer maxAge, String location) {
+    public FilterPreferences savePreferences(Long userId, Integer minAge, Integer maxAge, String location,
+                                              Sect sect, PrayerFrequency minPrayerFrequency,
+                                              EducationLevel minEducationLevel, HijabPreference hijabPreference) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
@@ -87,6 +97,10 @@ public class UserService {
         preferences.setMinAge(minAge);
         preferences.setMaxAge(maxAge);
         preferences.setLocation(location);
+        preferences.setSect(sect);
+        preferences.setMinPrayerFrequency(minPrayerFrequency);
+        preferences.setMinEducationLevel(minEducationLevel);
+        preferences.setHijabPreference(hijabPreference);
         preferences.setUpdatedAt(LocalDateTime.now());
 
         return filterPreferencesRepository.save(preferences);

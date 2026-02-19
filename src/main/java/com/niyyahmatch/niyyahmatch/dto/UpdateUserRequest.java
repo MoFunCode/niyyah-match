@@ -1,6 +1,10 @@
 package com.niyyahmatch.niyyahmatch.dto;
 
+import com.niyyahmatch.niyyahmatch.entity.EducationLevel;
 import com.niyyahmatch.niyyahmatch.entity.Gender;
+import com.niyyahmatch.niyyahmatch.entity.HijabPreference;
+import com.niyyahmatch.niyyahmatch.entity.PrayerFrequency;
+import com.niyyahmatch.niyyahmatch.entity.Sect;
 import com.niyyahmatch.niyyahmatch.validation.MinAge;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -48,4 +52,10 @@ public class UpdateUserRequest {
 
     @Size(max = 500, message = "Profile photo URL cannot exceed 500 characters")
     private String profilePhotoUrl;
+
+    // Islamic identity and lifestyle fields (all optional)
+    private Sect sect;
+    private PrayerFrequency prayerFrequency;
+    private EducationLevel educationLevel;
+    private HijabPreference hijabStatus;
 }

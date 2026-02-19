@@ -1,8 +1,12 @@
 package com.niyyahmatch.niyyahmatch.service;
 
+import com.niyyahmatch.niyyahmatch.entity.EducationLevel;
 import com.niyyahmatch.niyyahmatch.entity.FilterPreferences;
 import com.niyyahmatch.niyyahmatch.entity.Gender;
+import com.niyyahmatch.niyyahmatch.entity.HijabPreference;
 import com.niyyahmatch.niyyahmatch.entity.MatchStatus;
+import com.niyyahmatch.niyyahmatch.entity.PrayerFrequency;
+import com.niyyahmatch.niyyahmatch.entity.Sect;
 import com.niyyahmatch.niyyahmatch.entity.User;
 import com.niyyahmatch.niyyahmatch.exception.ResourceNotFoundException;
 import com.niyyahmatch.niyyahmatch.repository.FilterPreferencesRepository;
@@ -52,9 +56,15 @@ public class CandidateService {
                 .map(maxAge -> LocalDate.now().minusYears(maxAge))
                 .orElse(null);
 
+        // Extract Islamic lifestyle filters - null if no preference set
         String location = prefs.map(FilterPreferences::getLocation).orElse(null);
+        Sect sect = prefs.map(FilterPreferences::getSect).orElse(null);
+        PrayerFrequency prayerFrequency = prefs.map(FilterPreferences::getMinPrayerFrequency).orElse(null);
+        EducationLevel educationLevel = prefs.map(FilterPreferences::getMinEducationLevel).orElse(null);
+        HijabPreference hijabPreference = prefs.map(FilterPreferences::getHijabPreference).orElse(null);
 
         Pageable pageable = PageRequest.of(page, PAGE_SIZE);
-        return userRepository.findCandidates(userId, targetGender, location, minBirthDate, maxBirthDate, MatchStatus.ACTIVE, pageable);
+        return userRepository.findCandidates(userId, targetGender, location, minBirthDate, maxBirthDate,
+                MatchStatus.ACTIVE, sect, prayerFrequency, educationLevel, hijabPreference, pageable);
     }
 }

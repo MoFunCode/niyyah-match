@@ -28,6 +28,20 @@ public class FilterPreferences {
 
     private String location;
 
+    // Islamic lifestyle filters - all optional (null = no preference)
+    @Enumerated(EnumType.STRING)
+    private Sect sect;
+
+    @Enumerated(EnumType.STRING)
+    private PrayerFrequency minPrayerFrequency;
+
+    @Enumerated(EnumType.STRING)
+    private EducationLevel minEducationLevel;
+
+    // For male users filtering female candidates by hijab status
+    @Enumerated(EnumType.STRING)
+    private HijabPreference hijabPreference;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

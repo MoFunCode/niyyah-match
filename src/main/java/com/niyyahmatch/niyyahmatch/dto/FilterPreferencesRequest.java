@@ -1,5 +1,9 @@
 package com.niyyahmatch.niyyahmatch.dto;
 
+import com.niyyahmatch.niyyahmatch.entity.EducationLevel;
+import com.niyyahmatch.niyyahmatch.entity.HijabPreference;
+import com.niyyahmatch.niyyahmatch.entity.PrayerFrequency;
+import com.niyyahmatch.niyyahmatch.entity.Sect;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.Getter;
@@ -20,4 +24,13 @@ public class FilterPreferencesRequest {
     private Integer maxAge;
 
     private String location;
+
+    // All Islamic lifestyle filters are optional - null means no preference
+    private Sect sect;
+
+    private PrayerFrequency minPrayerFrequency;
+
+    private EducationLevel minEducationLevel;
+
+    private HijabPreference hijabPreference;
 }

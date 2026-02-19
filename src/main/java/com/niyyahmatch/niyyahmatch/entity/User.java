@@ -31,4 +31,18 @@ public class User {
     private LocalDateTime createdAt;
     private LocalDateTime lastActive;
 
+    // Islamic identity and lifestyle fields
+    @Enumerated(EnumType.STRING)
+    private Sect sect;
+
+    @Enumerated(EnumType.STRING)
+    private PrayerFrequency prayerFrequency;
+
+    @Enumerated(EnumType.STRING)
+    private EducationLevel educationLevel;
+
+    // Hijab is relevant for female users and for male users' preferences
+    @Enumerated(EnumType.STRING)
+    private HijabPreference hijabStatus;
+
 }
