@@ -13,10 +13,10 @@ NiyyahMatch encourages meaningful connections by requiring users to make intenti
 - Forces intentional connection over constant browsing
 
 ### Additional Features
-- **Daily Swipe Limit**: 12 swipes per day to encourage quality over quantity
-- **Seven Core Filters**: Age, distance, education, prayer frequency, sect, hijab preference
-- **In-App Messaging**: Text messaging for active matches only
-- **14-Day Soft Prompt**: Gentle nudge after two weeks to make a decision
+- **Daily Swipe Limit**: 12 swipes per day, resets at midnight UTC
+- **Seven Core Filters**: Age, location, education, prayer frequency, sect, hijab preference
+- **In-App Messaging**: Text messaging for active matches only — no history after unmatch
+- **Interactive API Docs**: Swagger UI at `/swagger-ui.html`
 
 ## Tech Stack
 
@@ -40,28 +40,25 @@ NiyyahMatch encourages meaningful connections by requiring users to make intenti
 - ✅ User authentication system with JWT tokens
 - ✅ BCrypt password hashing (NIST SP 800-63B compliant)
 - ✅ Complete CRUD operations for user profiles
-- ✅ Input validation with custom validators
+- ✅ Input validation with custom validators (including custom `@MinAge`)
 - ✅ Global exception handling with field-level errors
 - ✅ Layered architecture (Controller → Service → Repository → Entity)
 - ✅ DTO pattern for API security (passwords never exposed)
 - ✅ **Match lock system - THE CORE DIFFERENTIATOR!** 🔒
-- ✅ Match and Swipe entities with JPA relationships
 - ✅ Swipe functionality with mutual match detection
-- ✅ Match lock enforcement (users blocked from swiping with active match)
-- ✅ GET /api/matches/active endpoint
-- ✅ POST /api/matches/swipes endpoint with full validation
-- ✅ POST /api/matches/{matchId}/unmatch endpoint (match lock release)
-- ✅ **Complete match lifecycle working end-to-end!** (swipe → match → unmatch → swipe again)
-- ✅ Filter preferences system (age range, location)
-- ✅ GET /api/swipes/candidates endpoint with smart filtering
-- ✅ **Phase 2 complete!**
+- ✅ Complete match lifecycle (swipe → match → unmatch → swipe again)
+- ✅ Daily swipe quota (12/day, resets midnight UTC)
+- ✅ Filter preferences system (age, location, sect, prayer frequency, education, hijab)
+- ✅ Smart candidate discovery with all filters applied automatically
+- ✅ Messaging system (active matches only, paginated history)
+- ✅ Interactive API documentation (Swagger UI)
 
 **Next Up:**
-- 🔄 Daily swipe quota system (12 swipes/day limit)
+- 🔄 Integration tests (controller + security layer coverage)
 
 **Planned:**
-- ⏳ Messaging system
-- ⏳ 14-day prompt system
+- ⏳ Frontend (React, separate repository)
+- ⏳ Private beta launch
 
 ## Features Showcase
 
@@ -396,43 +393,38 @@ curl -X POST http://localhost:8080/api/matches/swipes \
 
 ### 6. Filter Preferences & Candidate Discovery
 
-Users set their preferences once - the system applies them automatically on every candidates request:
+Users set their preferences once - the system applies them automatically on every candidates request. All filters are optional; omit any field to skip that filter.
 
 ```bash
-# Set filter preferences
+# Set filter preferences (all fields optional)
 curl -X PUT http://localhost:8080/api/users/preferences \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"minAge": 24, "maxAge": 32, "location": "New York"}'
+  -d '{
+    "minAge": 24,
+    "maxAge": 32,
+    "location": "New York",
+    "sect": "SUNNI",
+    "minPrayerFrequency": "FIVE_TIMES_DAILY",
+    "minEducationLevel": "BACHELORS",
+    "hijabPreference": "WEARS_HIJAB"
+  }'
 
 # Response:
 {
   "minAge": 24,
   "maxAge": 32,
   "location": "New York",
-  "updatedAt": "2026-02-17T12:27:22.129068"
+  "sect": "SUNNI",
+  "minPrayerFrequency": "FIVE_TIMES_DAILY",
+  "minEducationLevel": "BACHELORS",
+  "hijabPreference": "WEARS_HIJAB",
+  "updatedAt": "2026-02-19T12:00:00"
 }
 
-# Get candidates - preferences applied automatically
+# Get candidates - all preferences applied automatically
 curl -X GET "http://localhost:8080/api/swipes/candidates?page=0" \
   -H "Authorization: Bearer <JWT_TOKEN>"
-
-# Response:
-{
-  "content": [
-    {
-      "id": 8,
-      "firstName": "Zahra",
-      "age": 28,
-      "location": "New York",
-      "bio": "Medical student seeking sincere partnership",
-      "profilePhotoUrl": null
-    }
-  ],
-  "totalElements": 1,
-  "totalPages": 1,
-  "size": 10
-}
 ```
 
 **Filtering logic applied automatically:**
@@ -440,8 +432,14 @@ curl -X GET "http://localhost:8080/api/swipes/candidates?page=0" \
 - Excludes users already swiped on (never see the same profile twice)
 - Excludes active match partner
 - Age range filter (18+ hard floor always enforced)
-- Location filter (skipped if no preference set)
-- Paginated - 10 candidates per page
+- Location, sect, prayer frequency, education level, hijab status (all optional — null = skip)
+- Paginated — 10 candidates per page
+
+**Available filter values:**
+- `sect`: `SUNNI`, `SHIA`, `NO_PREFERENCE`
+- `minPrayerFrequency`: `FIVE_TIMES_DAILY`, `MOST_PRAYERS`, `SOMETIMES`, `OCCASIONALLY`
+- `minEducationLevel`: `HIGH_SCHOOL`, `SOME_COLLEGE`, `BACHELORS`, `MASTERS`, `DOCTORATE`, `TRADE_SCHOOL`, `OTHER`
+- `hijabPreference`: `WEARS_HIJAB`, `DOES_NOT_WEAR_HIJAB`, `NO_PREFERENCE`
 
 ## Project Structure
 
@@ -453,9 +451,10 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 │   └── SecurityConfig.java
 ├── controller/                      # REST API endpoints
 │   ├── AuthController.java          # Login endpoint
-│   ├── MatchController.java         # Match and swipe endpoints
-│   ├── SwipeController.java         # Candidates endpoint
-│   └── UserController.java          # User CRUD + preferences
+│   ├── MatchController.java         # Match, swipe, and unmatch endpoints
+│   ├── MessageController.java       # In-match messaging endpoints
+│   ├── SwipeController.java         # Candidates + swipe quota endpoints
+│   └── UserController.java          # User CRUD + filter preferences
 ├── dto/                             # Data Transfer Objects
 │   ├── CandidateResponse.java       # Candidate profile (no sensitive data)
 │   ├── CreateUserRequest.java
@@ -465,15 +464,23 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 │   ├── LoginRequest.java
 │   ├── LoginResponse.java
 │   ├── MatchResponse.java
+│   ├── MessageResponse.java
+│   ├── SendMessageRequest.java
+│   ├── SwipeQuotaResponse.java
 │   ├── SwipeRequest.java
 │   ├── SwipeResponse.java
 │   ├── UpdateUserRequest.java
 │   └── UserResponse.java
-├── entity/                          # JPA entities
+├── entity/                          # JPA entities & enums
+│   ├── EducationLevel.java          # HIGH_SCHOOL, BACHELORS, MASTERS, etc.
 │   ├── FilterPreferences.java       # User filter preferences
-│   ├── Gender.java
+│   ├── Gender.java                  # MALE, FEMALE
+│   ├── HijabPreference.java         # WEARS_HIJAB, DOES_NOT_WEAR_HIJAB, NO_PREFERENCE
 │   ├── Match.java
 │   ├── MatchStatus.java             # ACTIVE, UNMATCHED, EXPIRED
+│   ├── Message.java
+│   ├── PrayerFrequency.java         # FIVE_TIMES_DAILY, MOST_PRAYERS, SOMETIMES, OCCASIONALLY
+│   ├── Sect.java                    # SUNNI, SHIA, NO_PREFERENCE
 │   ├── Swipe.java
 │   ├── SwipeDirection.java          # LEFT, RIGHT
 │   └── User.java
@@ -484,11 +491,13 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 ├── repository/                      # Data access layer
 │   ├── FilterPreferencesRepository.java
 │   ├── MatchRepository.java
+│   ├── MessageRepository.java
 │   ├── SwipeRepository.java
 │   └── UserRepository.java          # Includes findCandidates JPQL query
 ├── service/                         # Business logic
 │   ├── CandidateService.java        # Candidate filtering & pagination
-│   ├── MatchService.java            # Match lock enforcement & swipe logic
+│   ├── MatchService.java            # Match lock enforcement, swipe logic, quota
+│   ├── MessageService.java          # In-match messaging
 │   └── UserService.java             # User management & preferences
 ├── validation/                      # Custom validators
 │   ├── MinAge.java
@@ -498,8 +507,10 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 
 ## API Endpoints
 
+> **Tip:** All endpoints are interactively documented at `http://localhost:8080/swagger-ui.html` when the app is running.
+
 ### Authentication
-- `POST /api/auth/login` - Authenticate and receive JWT token
+- `POST /api/auth/login` - Authenticate and receive JWT token (public)
 
 ### User Management
 - `POST /api/users/register` - Register new user (public)
@@ -507,17 +518,22 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 - `PUT /api/users/{id}` - Update user profile (requires JWT)
 - `DELETE /api/users/{id}` - Delete user account (requires JWT)
 
+### Filter Preferences
+- `GET /api/users/preferences` - Get current filter preferences (requires JWT)
+- `PUT /api/users/preferences` - Set or update filter preferences (requires JWT)
+
 ### Match & Swipe System 🔒
 - `GET /api/matches/active` - Get current active match (requires JWT)
 - `POST /api/matches/swipes` - Record a swipe (LIKE/PASS) with match lock enforcement (requires JWT)
 - `POST /api/matches/{matchId}/unmatch` - End current match and release match lock (requires JWT)
 
 ### Candidate Discovery
-- `GET /api/swipes/candidates?page=0` - Get paginated candidates with filters applied (requires JWT)
+- `GET /api/swipes/candidates?page=0` - Get paginated candidates with all filters applied (requires JWT)
+- `GET /api/swipes/remaining` - Check remaining swipes for today (requires JWT)
 
-### Filter Preferences
-- `GET /api/users/preferences` - Get current filter preferences (requires JWT)
-- `PUT /api/users/preferences` - Set or update filter preferences (requires JWT)
+### Messaging
+- `POST /api/matches/{matchId}/messages` - Send a message to your active match (requires JWT)
+- `GET /api/matches/{matchId}/messages?page=0` - Get paginated message history (requires JWT)
 
 ## Local Setup
 
@@ -584,15 +600,14 @@ src/main/java/com/niyyahmatch/niyyahmatch/
 - [x] GET /api/swipes/candidates endpoint with smart filtering
 - [x] GET/PUT /api/users/preferences endpoints
 
-### Phase 3: Engagement Features 🔄 IN PROGRESS
-- [ ] Daily swipe quota (12 swipes/day limit)
-- [ ] Daily quota reset scheduler
-- [ ] Messaging system (send & receive within active match)
-- [ ] Profile management enhancements
+### Phase 3: Engagement Features ✅ COMPLETE
+- [x] Daily swipe quota (12 swipes/day, resets midnight UTC)
+- [x] Messaging system (send & receive within active match only)
+- [x] Full Islamic filter system (sect, prayer frequency, education, hijab)
+- [x] Interactive API documentation (Swagger UI)
 
-### Phase 4: Polish & Launch
-- [ ] 14-day soft prompt system
-- [ ] Comprehensive testing
+### Phase 4: Polish & Launch 🔄 IN PROGRESS
+- [ ] Integration tests (controller + security layer)
 - [ ] Performance optimization
 - [ ] Private beta (50-100 users)
 
