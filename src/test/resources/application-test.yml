@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/niyyahmatch
+    username: erimo
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false # Set to true if you want to see SQL queries during tests
+
+# JWT Configuration (same as production for integration tests)
+jwt:
+  secret: niyyahmatch-super-secret-key-for-development-only-change-in-production
+  expiration: 86400000  # 24 hours in milliseconds
