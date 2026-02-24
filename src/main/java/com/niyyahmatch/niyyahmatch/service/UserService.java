@@ -49,19 +49,43 @@ public class UserService {
         // Find existing user or throw exception
         User existingUser = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
-        // Update fields
-        existingUser.setEmail(updatedUser.getEmail());
-        existingUser.setFirstName(updatedUser.getFirstName());
-        existingUser.setLastName(updatedUser.getLastName());
-        existingUser.setDateOfBirth(updatedUser.getDateOfBirth());
-        existingUser.setGender(updatedUser.getGender());
-        existingUser.setLocation(updatedUser.getLocation());
-        existingUser.setBio(updatedUser.getBio());
-        existingUser.setProfilePhotoUrl(updatedUser.getProfilePhotoUrl());
-        existingUser.setSect(updatedUser.getSect());
-        existingUser.setPrayerFrequency(updatedUser.getPrayerFrequency());
-        existingUser.setEducationLevel(updatedUser.getEducationLevel());
-        existingUser.setHijabStatus(updatedUser.getHijabStatus());
+        // Update fields only if they are not null (partial update support)
+        if (updatedUser.getEmail() != null) {
+            existingUser.setEmail(updatedUser.getEmail());
+        }
+        if (updatedUser.getFirstName() != null) {
+            existingUser.setFirstName(updatedUser.getFirstName());
+        }
+        if (updatedUser.getLastName() != null) {
+            existingUser.setLastName(updatedUser.getLastName());
+        }
+        if (updatedUser.getDateOfBirth() != null) {
+            existingUser.setDateOfBirth(updatedUser.getDateOfBirth());
+        }
+        if (updatedUser.getGender() != null) {
+            existingUser.setGender(updatedUser.getGender());
+        }
+        if (updatedUser.getLocation() != null) {
+            existingUser.setLocation(updatedUser.getLocation());
+        }
+        if (updatedUser.getBio() != null) {
+            existingUser.setBio(updatedUser.getBio());
+        }
+        if (updatedUser.getProfilePhotoUrl() != null) {
+            existingUser.setProfilePhotoUrl(updatedUser.getProfilePhotoUrl());
+        }
+        if (updatedUser.getSect() != null) {
+            existingUser.setSect(updatedUser.getSect());
+        }
+        if (updatedUser.getPrayerFrequency() != null) {
+            existingUser.setPrayerFrequency(updatedUser.getPrayerFrequency());
+        }
+        if (updatedUser.getEducationLevel() != null) {
+            existingUser.setEducationLevel(updatedUser.getEducationLevel());
+        }
+        if (updatedUser.getHijabStatus() != null) {
+            existingUser.setHijabStatus(updatedUser.getHijabStatus());
+        }
 
         // Save and return updated user
         return userRepository.save(existingUser);
