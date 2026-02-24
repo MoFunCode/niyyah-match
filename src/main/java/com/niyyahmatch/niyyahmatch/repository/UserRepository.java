@@ -28,7 +28,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // - Opposite gender only
     // - Exclude self
     // - Exclude users already swiped on
-    // - Exclude current active match partner
+    // - MATCH LOCK: Return empty if current user has ANY active match (core differentiator)
+    // - Exclude current active match partner (redundant with match lock, but kept for clarity)
     // - Optional: age range (converted to birth date range by the service layer)
     // - Optional: location, sect, prayer frequency, education level, hijab status
     // All Islamic lifestyle filters are optional - null means no preference (skip that filter)
@@ -42,10 +43,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             AND NOT EXISTS (
                 SELECT m FROM Match m
                 WHERE m.status = :activeStatus
-                AND (
-                    (m.user1.id = :userId AND m.user2.id = u.id)
-                    OR (m.user2.id = :userId AND m.user1.id = u.id)
-                )
+                AND (m.user1.id = :userId OR m.user2.id = :userId)
             )
             AND (CAST(:location AS String) IS NULL OR u.location = :location)
             AND (CAST(:minBirthDate AS LocalDate) IS NULL OR u.dateOfBirth >= :minBirthDate)
