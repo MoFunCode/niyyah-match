@@ -275,10 +275,8 @@ class SwipeControllerIntegrationTest {
                 .andExpect(jsonPath("$.limit").value(12));
     }
 
-    // TODO: Fix this test - swipes aren't being counted (timezone issue with UTC midnight calculation)
-    // Temporarily disabled to allow other tests to pass
-    // @Test
-    void getRemainingSwipes_AfterSwipes_ReturnsCorrectCount_DISABLED() throws Exception {
+    @Test
+    void getRemainingSwipes_AfterSwipes_ReturnsCorrectCount() throws Exception {
         // Arrange: Create users
         String user1Token = registerAndLogin("user1@example.com", "securePassword123", "User", "One",
                 Gender.MALE, LocalDate.of(1995, 5, 15));

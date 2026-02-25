@@ -63,7 +63,7 @@ public class MatchService {
             .userId(userId)
             .targetUserId(targetUserId)
             .direction(direction)
-            .swipedAt(LocalDateTime.now())
+            .swipedAt(LocalDateTime.now(ZoneOffset.UTC))
             .build();
 
         swipeRepository.save(swipe);
