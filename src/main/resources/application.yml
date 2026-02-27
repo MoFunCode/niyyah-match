@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/niyyahmatch
+    username: erimo
+    password:
+  jpa:
+    hibernate:
+      ddl-auto:  update
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:niyyahmatch-super-secret-key-for-development-only-change-in-production}
+  expiration: 86400000  # 24 hours in milliseconds (1000ms * 60s * 60m * 24h)
+
