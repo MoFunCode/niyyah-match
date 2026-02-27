@@ -1,14 +1,21 @@
+# Spring Boot Application Configuration
+# This is for local development. For production, use environment variables or external config.
+
 spring:
   datasource:
+    # Local PostgreSQL connection (update username/password for your local setup)
     url: jdbc:postgresql://localhost:5432/niyyahmatch
-    username: erimo
-    password:
+    username: erimo  # Change to your PostgreSQL username
+    password:        # Add password if needed
   jpa:
     hibernate:
-      ddl-auto:  update
+      ddl-auto: update  # Creates/updates tables automatically (use 'validate' in production)
+    show-sql: false     # Set to true for debugging SQL queries (disable in production)
 
 # JWT Configuration
 jwt:
+  # Reads from JWT_SECRET environment variable, falls back to dev-only default
+  # IMPORTANT: Set JWT_SECRET env var in production (see .env.example)
   secret: ${JWT_SECRET:niyyahmatch-super-secret-key-for-development-only-change-in-production}
   expiration: 86400000  # 24 hours in milliseconds (1000ms * 60s * 60m * 24h)
 

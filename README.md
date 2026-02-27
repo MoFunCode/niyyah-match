@@ -1,642 +1,256 @@
 # NiyyahMatch
 
-An intentional Muslim matchmaking application that challenges the paradox of choice in modern dating apps through a unique **"match lock" system** - users can only have ONE active match at a time.
+I'm building a Muslim matchmaking app that works differently. Instead of endless swiping, you can only have **one active match at a time**. No browsing while you're talking to someone. Make a decision, then move forward.
 
-## What Makes This Different
+## Why This Exists
 
-NiyyahMatch encourages meaningful connections by requiring users to make intentional decisions about their matches before moving on. No endless swiping, no paradox of choice - just focused, purposeful connections.
+Modern dating apps have a paradox of choice problem - too many options leads to decision paralysis and shallow connections. I wanted to build something that encourages intentional decision-making instead of endless browsing.
 
-### The Match Lock System
-- Users can only maintain **ONE active match** at a time
-- Cannot browse new profiles while an active match exists
-- Must resolve current match (continue or unmatch) before proceeding
-- Forces intentional connection over constant browsing
+This is my first production Spring Boot project. I'm a Software Engineering Apprentice at Apple (Radar team) transitioning to full-time SWE roles, and I built this to learn production-quality backend development while solving a real problem I care about.
 
-### Additional Features
-- **Daily Swipe Limit**: 12 swipes per day, resets at midnight UTC
-- **Seven Core Filters**: Age, location, education, prayer frequency, sect, hijab preference
-- **In-App Messaging**: Text messaging for active matches only — no history after unmatch
-- **Interactive API Docs**: Swagger UI at `/swagger-ui.html`
+## What's Working
 
-## Tech Stack
+**The backend is production-ready.** All core features are complete, 73/73 tests passing, ready for frontend integration.
 
-**Backend:**
-- Java 17
-- Spring Boot 4.0.1
-- Spring Security + JWT Authentication
-- Bean Validation (JSR 380)
-- PostgreSQL 15
-- JPA/Hibernate
-- Maven
+**Core Features:**
+- ✅ **Match lock system** - can only have one active match at a time (the main differentiator)
+- ✅ **JWT authentication** - BCrypt password hashing, secure token-based auth
+- ✅ **Smart filtering** - 7 Islamic filters (age, location, sect, prayer frequency, education, hijab preference)
+- ✅ **Daily swipe quota** - 12 swipes per day, resets at midnight UTC
+- ✅ **In-match messaging** - paginated conversations, blocked after unmatch
+- ✅ **73 passing tests** - 57 integration tests + 15 unit tests + 1 app test
+- ✅ **Production-ready setup** - CORS configured, environment-based secrets, database indexes
 
-**Planned Frontend:**
-- React (separate repository)
+**Tech Stack:** Java 17, Spring Boot 4.0.1, Spring Security, PostgreSQL 15, JPA/Hibernate, Maven
 
-## Current Status
+**What's Next:** React frontend, then private beta with 50-100 users.
 
-🚧 **Backend MVP in Progress** 🚧
+## What I Learned
 
-**Completed:**
-- ✅ User authentication system with JWT tokens
-- ✅ BCrypt password hashing (NIST SP 800-63B compliant)
-- ✅ Complete CRUD operations for user profiles
-- ✅ Input validation with custom validators (including custom `@MinAge`)
-- ✅ Global exception handling with field-level errors
-- ✅ Layered architecture (Controller → Service → Repository → Entity)
-- ✅ DTO pattern for API security (passwords never exposed)
-- ✅ **Match lock system - THE CORE DIFFERENTIATOR!** 🔒
-- ✅ Swipe functionality with mutual match detection
-- ✅ Complete match lifecycle (swipe → match → unmatch → swipe again)
-- ✅ Daily swipe quota (12/day, resets midnight UTC)
-- ✅ Filter preferences system (age, location, sect, prayer frequency, education, hijab)
-- ✅ Smart candidate discovery with all filters applied automatically
-- ✅ Messaging system (active matches only, paginated history)
-- ✅ Interactive API documentation (Swagger UI)
+### Going from Tutorials to Production
 
-**Next Up:**
-- 🔄 Integration tests (controller + security layer coverage)
+The biggest difference between tutorial projects and production code? You have to think about things that tutorials skip.
 
-**Planned:**
-- ⏳ Frontend (React, separate repository)
-- ⏳ Private beta launch
+**Here's what I figured out:**
 
-## Features Showcase
+**Authentication & Security:**
+- JWT tokens are just JSON with a signature - the signature proves nobody tampered with the data
+- BCrypt is intentionally slow (protects against brute force attacks)
+- Never send passwords in API responses - that's what DTOs are for
+- Environment variables for secrets (not hardcoding in repos)
+- 12+ character passwords based on NIST guidelines (length > complexity)
 
-### 1. JWT Authentication with BCrypt Password Hashing
+**Custom Validators:**
+- Built a `@MinAge` annotation from scratch using `Period.between()` to calculate age
+- Learned about Java annotations (`@interface`, `@Retention`, `@Target`)
+- Bean Validation runs before controller methods execute
 
-Users register with secure password hashing and authenticate using JWT tokens:
+**Complex Database Queries:**
+- JPQL is similar to SQL but uses entity field names instead of column names
+- Nullable parameters need `CAST` for PostgreSQL's type inference
+- Composite indexes speed up queries that filter on multiple columns
+- Created indexes on `(userId, swipedAt)` for quota counting, `(user1_id, status)` for match lock checks
+
+**Testing:**
+- Integration tests test the whole stack (HTTP → Controller → Service → Database)
+- Unit tests test business logic in isolation (used Mockito for mocking)
+- Wrote 73 tests because I wanted to catch bugs before they reach users
+
+**Production Concerns:**
+- CORS configuration (so React frontend can make requests)
+- Pagination (loading all messages at once doesn't scale)
+- UTC timestamps (timezone bugs are subtle and annoying)
+- Database indexes on frequently queried columns
+- Security audit checklist before deployment
+
+### Cool Technical Problems I Solved
+
+**Unicode Support for Arabic Names:**
+Name validation uses `\p{L}\p{M}` regex to support names like محمد and فاطمة. This is a Muslim app - had to handle Arabic characters properly.
+
+**Bidirectional Match Queries:**
+The match lock has to check both `user1_id` and `user2_id` because either column could contain your user ID. Took me a while to realize I needed to check both sides.
+
+**Swipe Quota Timezone Bug:**
+Originally stored swipes in local time but queried based on UTC midnight. Caused quota counts to be wrong. Fixed by storing everything in UTC from the start.
+
+## How It Works
+
+### The Match Lock (Core Differentiator)
+
+When you have an active match, you **cannot swipe on anyone else**. The system enforces this at the service layer before recording any swipe.
+
+Here's the validation logic:
 
 ```java
-@Service
-public class UserService {
-    private final PasswordEncoder passwordEncoder;
-
-    public User registerUser(User user) {
-        // Hash password with BCrypt before saving
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setCreatedAt(LocalDateTime.now());
-        return userRepository.save(user);
+@Transactional
+public Optional<Match> recordSwipe(Long userId, Long targetUserId, SwipeDirection direction) {
+    // Can't swipe on yourself
+    if (userId.equals(targetUserId)) {
+        throw new IllegalArgumentException("Cannot swipe on yourself");
     }
 
-    public boolean verifyPassword(String rawPassword, String hashedPassword) {
-        return passwordEncoder.matches(rawPassword, hashedPassword);
+    // THE MATCH LOCK - enforces one match at a time
+    if (hasActiveMatch(userId)) {
+        throw new IllegalStateException("Cannot swipe while you have an active match");
     }
+
+    // Can't swipe twice on same person
+    if (swipeRepository.existsByUserIdAndTargetUserId(userId, targetUserId)) {
+        throw new IllegalStateException("You already swiped on this user");
+    }
+
+    // Record the swipe and check for mutual match
+    // ...
 }
 ```
 
-**API Example:**
+**Try to swipe while locked:**
 ```bash
-# Register new user
-curl -X POST http://localhost:8080/api/users/register \
+curl -X POST http://localhost:8080/api/matches/swipes \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "ahmed@example.com",
-    "password": "securepassword123",
-    "firstName": "Ahmed",
-    "lastName": "Hassan",
-    "dateOfBirth": "1995-03-15",
-    "gender": "MALE"
-  }'
-
-# Login and receive JWT token
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "ahmed@example.com",
-    "password": "securepassword123"
-  }'
-
-# Response:
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "userId": 1,
-  "email": "ahmed@example.com"
-}
-```
-
-### 2. Custom Input Validation
-
-Built a custom `@MinAge` annotation for age validation, demonstrating advanced Spring Boot knowledge:
-
-```java
-@Target({ElementType.FIELD})
-@Retention(RetentionPolicy.RUNTIME)
-@Constraint(validatedBy = MinAgeValidator.class)
-public @interface MinAge {
-    int value();
-    String message() default "Age requirement not met";
-    Class<?>[] groups() default {};
-    Class<? extends Payload>[] payload() default {};
-}
-
-public class MinAgeValidator implements ConstraintValidator<MinAge, LocalDate> {
-    private int minAge;
-
-    @Override
-    public void initialize(MinAge constraintAnnotation) {
-        this.minAge = constraintAnnotation.value();
-    }
-
-    @Override
-    public boolean isValid(LocalDate dateOfBirth, ConstraintValidatorContext context) {
-        if (dateOfBirth == null) return true;
-        int age = Period.between(dateOfBirth, LocalDate.now()).getYears();
-        return age >= minAge;
-    }
-}
-```
-
-**Usage in DTO:**
-```java
-@Getter
-@Setter
-@Builder
-public class CreateUserRequest {
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be a valid email address")
-    @Size(max = 254)
-    private String email;
-
-    @NotBlank(message = "Password is required")
-    @Size(min = 12, max = 128, message = "Password must be between 12 and 128 characters")
-    private String password;
-
-    @NotNull(message = "Date of birth is required")
-    @Past(message = "Date of birth must be in the past")
-    @MinAge(value = 18, message = "You must be at least 18 years old to register")
-    private LocalDate dateOfBirth;
-
-    @NotNull(message = "Gender is required")
-    private Gender gender;
-
-    // Additional fields...
-}
-```
-
-**Validation in Action:**
-```bash
-# Invalid registration (user under 18)
-curl -X POST http://localhost:8080/api/users/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "young@example.com",
-    "password": "securepass123",
-    "firstName": "Ali",
-    "lastName": "Ahmed",
-    "dateOfBirth": "2010-01-01",
-    "gender": "MALE"
-  }'
+  -d '{"targetUserId": 12, "direction": "RIGHT"}'
 
 # Response (400 Bad Request):
 {
-  "message": "Validation failed",
-  "errors": {
-    "dateOfBirth": "You must be at least 18 years old to register"
-  }
-}
-```
-
-### 3. DTO Pattern for API Security
-
-Passwords are never exposed in API responses using the DTO pattern:
-
-```java
-public class UserResponse {
-    private Long id;
-    private String firstName;
-    private String lastName;
-    private LocalDate dateOfBirth;
-    private Gender gender;
-    private String email;
-    // NO password field - security by design
-    private String location;
-    private String bio;
-    private LocalDateTime createdAt;
-
-    public UserResponse(User user) {
-        this.id = user.getId();
-        this.firstName = user.getFirstName();
-        this.lastName = user.getLastName();
-        this.dateOfBirth = user.getDateOfBirth();
-        this.gender = user.getGender();
-        this.email = user.getEmail();
-        this.location = user.getLocation();
-        this.bio = user.getBio();
-        this.createdAt = user.getCreatedAt();
-    }
-}
-```
-
-### 4. Global Exception Handling
-
-Centralized exception handling with field-level error details:
-
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-            errors.put(error.getField(), error.getDefaultMessage())
-        );
-
-        ErrorResponse errorResponse = new ErrorResponse("Validation failed", errors);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-    }
-
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
-        ErrorResponse errorResponse = new ErrorResponse(ex.getMessage(), null);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-    }
-
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
-        ErrorResponse errorResponse = new ErrorResponse(ex.getMessage(), null);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-    }
-}
-```
-
-### 5. Match Lock System 🔒 (THE CORE DIFFERENTIATOR!)
-
-The match lock enforces NiyyahMatch's unique approach - users can only have ONE active match at a time:
-
-```java
-@Service
-public class MatchService {
-
-    public boolean hasActiveMatch(Long userId) {
-        // Check both user1 and user2 positions (bidirectional)
-        return matchRepository.existsByUser1IdAndStatusOrUser2IdAndStatus(
-            userId, MatchStatus.ACTIVE,
-            userId, MatchStatus.ACTIVE
-        );
-    }
-
-    @Transactional
-    public Optional<Match> recordSwipe(Long userId, Long targetUserId, SwipeDirection direction) {
-        // Validation 1: Can't swipe on yourself
-        if (userId.equals(targetUserId)) {
-            throw new IllegalArgumentException("Cannot swipe on yourself");
-        }
-
-        // Validation 2: THE MATCH LOCK - enforces one match at a time
-        if (hasActiveMatch(userId)) {
-            throw new IllegalStateException("Cannot swipe while you have an active match");
-        }
-
-        // Validation 3: Can't swipe twice on same person
-        if (swipeRepository.existsByUserIdAndTargetUserId(userId, targetUserId)) {
-            throw new IllegalStateException("You already swiped on this user");
-        }
-
-        // Record the swipe
-        Swipe swipe = Swipe.builder()
-            .userId(userId)
-            .targetUserId(targetUserId)
-            .direction(direction)
-            .swipedAt(LocalDateTime.now())
-            .build();
-        swipeRepository.save(swipe);
-
-        // Check for mutual match (both swiped RIGHT)
-        if (direction == SwipeDirection.RIGHT) {
-            return checkAndCreateMatch(userId, targetUserId);
-        }
-
-        return Optional.empty();
-    }
-}
-```
-
-**API Examples:**
-
-```bash
-# Get current active match
-curl -X GET http://localhost:8080/api/matches/active \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-
-# Response if match exists:
-{
-  "matchId": 2,
-  "status": "ACTIVE",
-  "matchedAt": "2026-02-14T16:34:46.722514",
-  "matchedUser": {
-    "id": 10,
-    "firstName": "Fatima",
-    "lastName": "Ahmed",
-    "email": "fatima@test.com",
-    ...
-  }
-}
-
-# Response if no active match (404):
-{
-  "status": 404,
-  "error": "Resource Not Found",
-  "message": "No active match found"
-}
-
-# Swipe RIGHT on a user
-curl -X POST http://localhost:8080/api/matches/swipes \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -d '{
-    "targetUserId": 11,
-    "direction": "RIGHT"
-  }'
-
-# Response if mutual match created:
-{
-  "matched": true,
-  "matchDetails": {
-    "matchId": 2,
-    "status": "ACTIVE",
-    "matchedAt": "2026-02-14T16:34:46.722514",
-    "matchedUser": { ... }
-  }
-}
-
-# Response if no mutual match yet:
-{
-  "matched": false,
-  "matchDetails": null
-}
-
-# Try to swipe while having active match (BLOCKED!):
-curl -X POST http://localhost:8080/api/matches/swipes \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -d '{
-    "targetUserId": 12,
-    "direction": "RIGHT"
-  }'
-
-# Response (400 Bad Request):
-{
-  "timestamp": "2026-02-14T16:42:06.897026",
-  "status": 400,
-  "error": "Invalid Request",
   "message": "Cannot swipe while you have an active match"
 }
 ```
 
-**Validations Enforced:**
-- ✅ Match lock enforcement (cannot swipe with active match)
-- ✅ Self-swipe prevention (cannot swipe on yourself)
-- ✅ Duplicate swipe prevention (cannot swipe twice on same user)
-- ✅ Mutual match detection (both users swipe RIGHT → match created)
+You have to unmatch first. One conversation at a time.
 
-### 6. Filter Preferences & Candidate Discovery
+### Smart Candidate Filtering
 
-Users set their preferences once - the system applies them automatically on every candidates request. All filters are optional; omit any field to skip that filter.
-
-```bash
-# Set filter preferences (all fields optional)
-curl -X PUT http://localhost:8080/api/users/preferences \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "minAge": 24,
-    "maxAge": 32,
-    "location": "New York",
-    "sect": "SUNNI",
-    "minPrayerFrequency": "FIVE_TIMES_DAILY",
-    "minEducationLevel": "BACHELORS",
-    "hijabPreference": "WEARS_HIJAB"
-  }'
-
-# Response:
-{
-  "minAge": 24,
-  "maxAge": 32,
-  "location": "New York",
-  "sect": "SUNNI",
-  "minPrayerFrequency": "FIVE_TIMES_DAILY",
-  "minEducationLevel": "BACHELORS",
-  "hijabPreference": "WEARS_HIJAB",
-  "updatedAt": "2026-02-19T12:00:00"
-}
-
-# Get candidates - all preferences applied automatically
-curl -X GET "http://localhost:8080/api/swipes/candidates?page=0" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-**Filtering logic applied automatically:**
+Built a JPQL query that applies 7 filters automatically:
 - Opposite gender only
-- Excludes users already swiped on (never see the same profile twice)
-- Excludes active match partner
-- Age range filter (18+ hard floor always enforced)
-- Location, sect, prayer frequency, education level, hijab status (all optional — null = skip)
-- Paginated — 10 candidates per page
+- Exclude users you've already swiped on
+- Exclude your active match partner (enforces match lock)
+- Age range (18+ always enforced as legal requirement)
+- Location, sect, prayer frequency, education, hijab preference (all optional)
 
-**Available filter values:**
-- `sect`: `SUNNI`, `SHIA`, `NO_PREFERENCE`
-- `minPrayerFrequency`: `FIVE_TIMES_DAILY`, `MOST_PRAYERS`, `SOMETIMES`, `OCCASIONALLY`
-- `minEducationLevel`: `HIGH_SCHOOL`, `SOME_COLLEGE`, `BACHELORS`, `MASTERS`, `DOCTORATE`, `TRADE_SCHOOL`, `OTHER`
-- `hijabPreference`: `WEARS_HIJAB`, `DOES_NOT_WEAR_HIJAB`, `NO_PREFERENCE`
+Users set their preferences once using `PUT /api/users/preferences`, and the system applies them on every candidate request. Paginated 10 per page.
+
+### Testing the Business Logic
+
+73 tests to make sure everything actually works:
+
+**Integration Tests (57 tests):**
+- AuthController: registration, login, JWT validation, protected endpoints
+- UserController: CRUD operations, filter preferences, validation errors
+- MatchController: match lock enforcement, mutual matches, unmatching
+- SwipeController: candidate filtering, swipe quota
+- MessageController: sending/reading messages, authorization checks
+
+**Unit Tests (15 tests):**
+- MatchService business logic: match lock, duplicate swipes, mutual match detection
+
+The integration tests hit the full stack - they make real HTTP requests, go through Spring Security, hit the database. If the match lock breaks, the tests catch it.
+
+## How I Built This
+
+### Phase 1: Foundation
+Learned Spring Boot project structure. Set up PostgreSQL, configured JPA, created the entity/repository/service/controller layers. Implemented JWT authentication and BCrypt password hashing.
+
+### Phase 2: Core Matching
+Built the match lock system - the main differentiator. Implemented mutual match detection, swipe lifecycle, and all the validations (self-swipe prevention, duplicate swipe prevention, match lock enforcement).
+
+### Phase 3: Engagement Features
+Added daily swipe quota (12/day with UTC midnight reset), in-match messaging with pagination, and the full Islamic filtering system (sect, prayer frequency, education, hijab).
+
+### Phase 4: Production Prep
+Wrote 73 integration and unit tests. Added CORS for frontend integration. Moved JWT secret to environment variables. Created database indexes on frequent queries. Completed security audit checklist.
+
+### Phase 5: Launch (Next)
+Build React frontend, run private beta with 50-100 users, iterate based on feedback.
+
+## Why I Made Certain Decisions
+
+**Match Lock Philosophy:**
+Dating apps show you unlimited options, which creates decision paralysis. Limiting users to one match at a time forces intentional decisions. Either keep talking or move on - no browsing while you're in a conversation.
+
+**PostgreSQL over H2:**
+Building for production from the start. H2 is great for learning, but I wanted real-world deployment experience.
+
+**Integration Tests over Just Unit Tests:**
+Unit tests are faster, but integration tests catch more bugs. They test the whole flow - authentication, authorization, database queries, error handling.
+
+**JPQL for Complex Queries:**
+Spring Data's derived method names are clean for simple queries, but the candidate filtering query was too complex. JPQL gave me full control.
+
+**UTC Timestamps Everywhere:**
+Learned this the hard way after hitting a timezone bug with swipe quotas. Store everything in UTC, convert to user's timezone in the frontend.
 
 ## Project Structure
 
 ```
 src/main/java/com/niyyahmatch/niyyahmatch/
-├── config/                          # Security & JWT configuration
-│   ├── JwtUtil.java
-│   ├── JwtAuthenticationFilter.java
-│   └── SecurityConfig.java
-├── controller/                      # REST API endpoints
-│   ├── AuthController.java          # Login endpoint
-│   ├── MatchController.java         # Match, swipe, and unmatch endpoints
-│   ├── MessageController.java       # In-match messaging endpoints
-│   ├── SwipeController.java         # Candidates + swipe quota endpoints
-│   └── UserController.java          # User CRUD + filter preferences
-├── dto/                             # Data Transfer Objects
-│   ├── CandidateResponse.java       # Candidate profile (no sensitive data)
-│   ├── CreateUserRequest.java
-│   ├── ErrorResponse.java
-│   ├── FilterPreferencesRequest.java
-│   ├── FilterPreferencesResponse.java
-│   ├── LoginRequest.java
-│   ├── LoginResponse.java
-│   ├── MatchResponse.java
-│   ├── MessageResponse.java
-│   ├── SendMessageRequest.java
-│   ├── SwipeQuotaResponse.java
-│   ├── SwipeRequest.java
-│   ├── SwipeResponse.java
-│   ├── UpdateUserRequest.java
-│   └── UserResponse.java
-├── entity/                          # JPA entities & enums
-│   ├── EducationLevel.java          # HIGH_SCHOOL, BACHELORS, MASTERS, etc.
-│   ├── FilterPreferences.java       # User filter preferences
-│   ├── Gender.java                  # MALE, FEMALE
-│   ├── HijabPreference.java         # WEARS_HIJAB, DOES_NOT_WEAR_HIJAB, NO_PREFERENCE
-│   ├── Match.java
-│   ├── MatchStatus.java             # ACTIVE, UNMATCHED, EXPIRED
-│   ├── Message.java
-│   ├── PrayerFrequency.java         # FIVE_TIMES_DAILY, MOST_PRAYERS, SOMETIMES, OCCASIONALLY
-│   ├── Sect.java                    # SUNNI, SHIA, NO_PREFERENCE
-│   ├── Swipe.java
-│   ├── SwipeDirection.java          # LEFT, RIGHT
-│   └── User.java
-├── exception/                       # Custom exceptions & global handler
-│   ├── DuplicateResourceException.java
-│   ├── GlobalExceptionHandler.java
-│   └── ResourceNotFoundException.java
-├── repository/                      # Data access layer
-│   ├── FilterPreferencesRepository.java
-│   ├── MatchRepository.java
-│   ├── MessageRepository.java
-│   ├── SwipeRepository.java
-│   └── UserRepository.java          # Includes findCandidates JPQL query
-├── service/                         # Business logic
-│   ├── CandidateService.java        # Candidate filtering & pagination
-│   ├── MatchService.java            # Match lock enforcement, swipe logic, quota
-│   ├── MessageService.java          # In-match messaging
-│   └── UserService.java             # User management & preferences
-├── validation/                      # Custom validators
-│   ├── MinAge.java
-│   └── MinAgeValidator.java
-└── NiyyahmatchApplication.java
+├── config/                   # JWT & Spring Security setup
+├── controller/               # REST API endpoints (Auth, User, Match, Swipe, Message)
+├── dto/                      # Request/Response objects (passwords never exposed)
+├── entity/                   # JPA entities (User, Match, Swipe, Message, FilterPreferences)
+├── exception/                # Custom exceptions & global error handler
+├── repository/               # Data access with Spring Data JPA
+├── service/                  # Business logic (match lock, swipe quota, filtering)
+└── validation/               # Custom validators (@MinAge)
 ```
 
 ## API Endpoints
 
-> **Tip:** All endpoints are interactively documented at `http://localhost:8080/swagger-ui.html` when the app is running.
+> **Interactive docs:** `http://localhost:8080/swagger-ui.html` when the app is running.
 
-### Authentication
-- `POST /api/auth/login` - Authenticate and receive JWT token (public)
+**Authentication:**
+- `POST /api/auth/login` - Get JWT token
 
-### User Management
-- `POST /api/users/register` - Register new user (public)
-- `GET /api/users/{id}` - Get user profile (requires JWT)
-- `PUT /api/users/{id}` - Update user profile (requires JWT)
-- `DELETE /api/users/{id}` - Delete user account (requires JWT)
+**User Management:**
+- `POST /api/users/register` - Create account
+- `GET /api/users/{id}` - Get profile
+- `PUT /api/users/{id}` - Update profile
+- `DELETE /api/users/{id}` - Delete account
 
-### Filter Preferences
-- `GET /api/users/preferences` - Get current filter preferences (requires JWT)
-- `PUT /api/users/preferences` - Set or update filter preferences (requires JWT)
+**Filtering:**
+- `GET /api/users/preferences` - Get filter preferences
+- `PUT /api/users/preferences` - Set filter preferences
 
-### Match & Swipe System 🔒
-- `GET /api/matches/active` - Get current active match (requires JWT)
-- `POST /api/matches/swipes` - Record a swipe (LIKE/PASS) with match lock enforcement (requires JWT)
-- `POST /api/matches/{matchId}/unmatch` - End current match and release match lock (requires JWT)
+**Matching:**
+- `GET /api/matches/active` - Get current match
+- `POST /api/matches/swipes` - Swipe (with match lock enforcement)
+- `POST /api/matches/{matchId}/unmatch` - End match
 
-### Candidate Discovery
-- `GET /api/swipes/candidates?page=0` - Get paginated candidates with all filters applied (requires JWT)
-- `GET /api/swipes/remaining` - Check remaining swipes for today (requires JWT)
+**Candidates:**
+- `GET /api/swipes/candidates?page=0` - Get filtered candidates
+- `GET /api/swipes/remaining` - Check remaining swipes
 
-### Messaging
-- `POST /api/matches/{matchId}/messages` - Send a message to your active match (requires JWT)
-- `GET /api/matches/{matchId}/messages?page=0` - Get paginated message history (requires JWT)
+**Messaging:**
+- `POST /api/matches/{matchId}/messages` - Send message
+- `GET /api/matches/{matchId}/messages?page=0` - Get conversation history
 
-## Local Setup
+## Running This Locally
 
-### Prerequisites
-- Java 17 or higher
-- PostgreSQL 15
-- Maven 3.6+
+**Requirements:** Java 17+, PostgreSQL 15, Maven 3.6+
 
-### Installation
+```bash
+# Clone and setup database
+git clone https://github.com/MoFunCode/niyyah-match.git
+cd niyyah-match
+createdb niyyahmatch
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/MoFunCode/niyyah-match.git
-   cd niyyah-match
-   ```
+# Update src/main/resources/application.yml with your PostgreSQL username if needed
+# Default is set to "postgres"
 
-2. **Set up PostgreSQL database**
-   ```bash
-   createdb niyyahmatch
-   ```
+# Run the app
+mvn spring-boot:run
 
-3. **Configure database connection**
+# Run tests
+mvn test
+```
 
-   Update `src/main/resources/application.yml` if your PostgreSQL username differs from `postgres`:
-   ```yaml
-   spring:
-     datasource:
-       username: your_username
-       password: your_password  # if you have one
-   ```
-
-4. **Run the application**
-   ```bash
-   mvn spring-boot:run
-   ```
-
-5. **The application will start on** `http://localhost:8080`
-
-6. **Run tests**
-   ```bash
-   mvn test
-   ```
-
-## Development Roadmap
-
-### Phase 1: Foundation ✅ COMPLETE
-- [x] Project setup and architecture
-- [x] Database configuration
-- [x] User entity and authentication
-- [x] JWT-based security
-- [x] Input validation system
-- [x] Global exception handling
-
-### Phase 2: Core Matching ✅ COMPLETE
-- [x] Match entity with relationships
-- [x] Swipe entity with swipe history
-- [x] Swipe functionality (POST /api/matches/swipes)
-- [x] Match creation logic with mutual detection
-- [x] **Match lock enforcement - THE CORE DIFFERENTIATOR!**
-- [x] GET /api/matches/active endpoint
-- [x] POST /api/matches/{matchId}/unmatch endpoint
-- [x] **Complete match lifecycle (swipe → match → unmatch → swipe again)**
-- [x] Filter preferences system (age range, location)
-- [x] GET /api/swipes/candidates endpoint with smart filtering
-- [x] GET/PUT /api/users/preferences endpoints
-
-### Phase 3: Engagement Features ✅ COMPLETE
-- [x] Daily swipe quota (12 swipes/day, resets midnight UTC)
-- [x] Messaging system (send & receive within active match only)
-- [x] Full Islamic filter system (sect, prayer frequency, education, hijab)
-- [x] Interactive API documentation (Swagger UI)
-
-### Phase 4: Polish & Launch 🔄 IN PROGRESS
-- [ ] Integration tests (controller + security layer)
-- [ ] Performance optimization
-- [ ] Private beta (50-100 users)
-
-## Design Decisions
-
-### Why Match Lock?
-The paradox of choice in modern dating apps leads to endless swiping without meaningful connections. By limiting users to one active match at a time, NiyyahMatch encourages:
-- Focused conversation with one person
-- Intentional decision-making
-- Reduced decision fatigue
-- Quality over quantity in matches
-
-### Security Standards
-- **Password Storage**: BCrypt hashing following NIST SP 800-63B guidelines (12-128 character minimum, length over complexity)
-- **Authentication**: JWT tokens with 24-hour expiration
-- **API Security**: DTOs prevent password exposure, Spring Security protects endpoints
-- **Input Validation**: Bean Validation with custom validators for domain-specific rules (e.g., 18+ age requirement)
-
-### Unicode Support for International Names
-Name validation uses `\p{L}\p{M}` regex patterns to support Arabic names (محمد, فاطمة) and other Unicode characters, ensuring cultural inclusivity.
-
-## Contributing
-
-This is a personal learning and portfolio project. Not currently accepting contributions, but feedback and suggestions are welcome!
-
-## License
-
-MIT License - see LICENSE file for details
+App starts at `http://localhost:8080`
+API docs at `http://localhost:8080/swagger-ui.html`
 
 ---
 
-**Built with intention.** Follow the journey: [GitHub](https://github.com/MoFunCode)
+**Built with intention.**
+This is my first production Spring Boot project. Learning by building something real.
+
+**Find me:** [GitHub](https://github.com/MoFunCode)
