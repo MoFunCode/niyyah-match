@@ -248,9 +248,3 @@ mvn test
 App starts at `http://localhost:8080`
 API docs at `http://localhost:8080/swagger-ui.html`
 
----
-
-**Built with intention.**
-This is my first production Spring Boot project. Learning by building something real.
-
-**Find me:** [GitHub](https://github.com/MoFunCode)
