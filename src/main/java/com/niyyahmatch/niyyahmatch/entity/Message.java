@@ -5,7 +5,9 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "messages")
+@Table(name = "messages", indexes = {
+    @Index(name = "idx_message_match_time", columnList = "match_id, sentAt")
+})
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class Message {
 

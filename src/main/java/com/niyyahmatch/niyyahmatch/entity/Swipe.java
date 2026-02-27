@@ -6,7 +6,10 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "swipe_history")
+@Table(name = "swipe_history", indexes = {
+    @Index(name = "idx_swipe_user_target", columnList = "userId, targetUserId"),
+    @Index(name = "idx_swipe_user_time", columnList = "userId, swipedAt")
+})
 @Getter
 @Setter
 @Builder
