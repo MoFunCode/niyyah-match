@@ -6,8 +6,6 @@ I'm building a Muslim matchmaking app that works differently. Instead of endless
 
 Modern dating apps have a paradox of choice problem - too many options leads to decision paralysis and shallow connections. I wanted to build something that encourages intentional decision-making instead of endless browsing.
 
-This is my first production Spring Boot project. I'm a Software Engineering Apprentice at Apple (Radar team) transitioning to full-time SWE roles, and I built this to learn production-quality backend development while solving a real problem I care about.
-
 ## What's Working
 
 **The backend is production-ready.** All core features are complete, 73/73 tests passing, ready for frontend integration.
